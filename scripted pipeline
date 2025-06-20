@@ -1,0 +1,36 @@
+node {
+    def remoteUser = "ubuntu"
+    def remoteHost = "10.0.3.18"
+    def remotePath = "/chatapp"
+
+    stage('Clone Git Repository') {
+        // Uses credentials stored in Jenkins : id is default generated
+        git credentialsId: '641d89c6-47f5-4440-8c3e-81585a037a35', url: 'https://github.com/ARPIT226/chat_app.git', branch: 'main'
+    }
+
+    stage('Copy Code to Remote Server') {
+        sh """
+            scp -r "\$WORKSPACE"/ * ${remoteUser}@${remoteHost}:${remotePath}/
+# (put / and * together without space in the above line)
+
+        """
+    }
+
+    stage('Install Python Requirements') {
+        sh """
+            ssh ${remoteUser}@${remoteHost} "cd ${remotePath} && source venv/bin/activate && pip install -r requirements.txt"
+        """
+    }
+
+    stage('Run Django Migrations') {
+        sh """
+            ssh ${remoteUser}@${remoteHost} "source ${remotePath}/venv/bin/activate && cd ${remotePath}/fundoo && python3 manage.py migrate"
+        """
+    }
+
+    stage('Restart Gunicorn') {
+        sh """
+            ssh ${remoteUser}@${remoteHost} "sudo systemctl restart gunicorn"
+        """
+    }
+}
