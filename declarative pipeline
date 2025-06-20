@@ -1,0 +1,49 @@
+pipeline {
+  agent any
+
+  environment {
+    REMOTE_USER = "ubuntu"
+    REMOTE_HOST = "10.0.3.18"
+    REMOTE_PATH = "/chatapp"
+  }
+  stages {
+    stage('Clone Git Repository') {
+      steps {
+        git credentialsId: '641d89c6-47f5-4440-8c3e-81585a037a35', url: 'https://github.com/ARPIT226/chat_app.git', branch: 'main'
+      }
+    }
+
+    stage('Copy App to Remote Server') {
+      steps {
+        sh '''
+          scp -r "$WORKSPACE"/ * ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_PATH}/
+    # (put / and * together without space in the above line)
+        '''
+      }
+    }
+
+    stage('Install Python Requirements') {
+      steps {
+        sh '''
+          ssh ${REMOTE_USER}@${REMOTE_HOST} "cd ${REMOTE_PATH} && source venv/bin/activate && pip install -r requirements.txt"
+        '''
+      }
+    }
+
+    stage('Run Django Migrations') {
+      steps {
+        sh '''
+          ssh ${REMOTE_USER}@${REMOTE_HOST} "source ${REMOTE_PATH}/venv/bin/activate && cd ${REMOTE_PATH}/fundoo && python3 manage.py migrate"
+        '''
+      }
+    }
+
+    stage('Restart Gunicorn') {
+      steps {
+        sh '''
+          ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo systemctl restart gunicorn"
+        '''
+      }
+    }
+  }
+}
